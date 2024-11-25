@@ -4,88 +4,171 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lista de Usuários</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
     <style>
+        /* Reset de margens e paddings */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Estilo geral */
         body {
-            background-color: #2C2F33;
-            color: #FFFFFF;
+            font-family: Arial, sans-serif;
+            background-color: #f4f7fc;
+            padding: 20px;
         }
+
         h1 {
-            color: #FFFFFF;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
         }
+
+        /* Tabela */
         table {
-            background-color: #23272A;
-            color: #FFFFFF;
-            table-layout: fixed;
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
         }
-        th, td {
-            color: #FFFFFF;
-            vertical-align: middle;
-            word-wrap: break-word;
+
+        table th, table td {
+            padding: 12px;
+            text-align: center;
+            border: 1px solid #ddd;
         }
-        td {
-            white-space: normal;
+
+        table th {
+            background-color: #4CAF50;
+            color: white;
         }
-        .col-senha {
-            width: 200px;
+
+        table td {
+            background-color: #f9f9f9;
         }
-        .col-acoes {
-            width: 150px;
+
+        table tr:nth-child(even) td {
+            background-color: #f2f2f2;
         }
-        .btn {
-            margin: 0 5px;
+
+        table tr:hover td {
+            background-color: #eaeaea;
+        }
+
+        /* Botões */
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        form {
+            display: inline;
+        }
+
+        a {
+            text-decoration: none;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Mensagem de flash */
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+
+        .flash-messages ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .flash-messages li {
+            padding: 10px;
+            background-color: #f44336;
+            color: white;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .flash-messages li.success {
+            background-color: #4CAF50;
         }
     </style>
 </head>
 <body>
-    <div class="container mt-5">
-        <h1 class="mb-4">Lista de Usuários</h1>
-        <table class="table table-striped table-dark table-bordered">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Login</th>
-                    <th>Nome</th>
-                    <th>Status</th>
-                    <th>Data de Criação</th>
-                    <th>Última Alteração</th>
-                    <th class="col-senha">Senha (Hash)</th>
-                    <th class="col-acoes">Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for user in users %}
+    <h1>Lista de Usuários</h1>
+
+    <!-- Mostrar mensagem de flash -->
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="flash-messages">
+                <ul>
+                {% for message in messages %}
+                    <li class="success">{{ message }}</li>
+                {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Tabela de usuários -->
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
                 <tr>
                     <td>{{ user.id }}</td>
-                    <td>{{ user.login }}</td>
                     <td>{{ user.nome }}</td>
+                    <td>{{ user.login }}</td>
                     <td>{{ user.status }}</td>
-                    <td>{{ user.data_criacao }}</td>
-                    <td>{{ user.data_ultima_atualizacao }}</td>
-                    <td class="col-senha">{{ user.senha }}</td>
-                    <td class="col-acoes">
-                        <!-- Botão de Editar -->
-                        <a href="{{ url_for('edit_user', id=user.id) }}" class="btn btn-warning btn-sm">Editar</a>
+                    <td>
+                        <!-- Ações -->
+                        <a href="{{ url_for('edit_user', id=user.id) }}">Editar</a> |
+
+                        <!-- Bloquear/Desbloquear -->
                         {% if user.status == 'ativo' %}
-                        <form action="{{ url_for('block_user', id=user.id) }}" method="POST" style="display:inline;">
-                            <button type="submit" class="btn btn-danger btn-sm">Bloquear</button>
-                        </form>
-                        {% elif user.status == 'bloqueado' %}
-                        <form action="{{ url_for('activate_user', id=user.id) }}" method="POST" style="display:inline;">
-                            <button type="submit" class="btn btn-success btn-sm">Ativar</button>
-                        </form>
+                            <form action="{{ url_for('block_user', id=user.id) }}" method="post">
+                                <button type="submit">Bloquear</button>
+                            </form>
+                        {% else %}
+                            <form action="{{ url_for('activate_user', id=user.id) }}" method="post">
+                                <button type="submit">Ativar</button>
+                            </form>
+                        {% endif %}
+
+                        <!-- Promover a admin -->
+                        {% if user.role != 'admin' %}
+                            <form action="{{ url_for('promote_user', id=user.id) }}" method="post">
+                                <button type="submit">Promover a Admin</button>
+                            </form>
                         {% endif %}
                     </td>
                 </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <a href="{{ url_for('home') }}" class="btn btn-secondary">Voltar</a>
-    </div>
+            {% endfor %}
+        </tbody>
+    </table>
 
-    <!-- Script do jQuery e Bootstrap -->
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <br>
+    <a href="{{ url_for('home') }}">Voltar à página inicial</a>
 </body>
 </html>

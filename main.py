@@ -1,7 +1,8 @@
-from flask import Flask, request, jsonify, render_template, redirect, url_for, flash
+from flask import Flask, request, jsonify, render_template, redirect, url_for, flash, session
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
+from functools import wraps
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
@@ -29,6 +30,33 @@ def initialize_database():
     return 'Banco de dados inicializado'
 
 
+# Decorador para autenticação
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Você precisa estar logado para acessar esta página.')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+# Decorador para autorização baseada em função
+def role_required(role):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # Verificação da role do usuário
+            user_role = session.get('user_role')
+            print("Role do usuário:", user_role)  # Adicionado para depuração
+            if user_role != role:
+                flash('Você não tem permissão para acessar esta página.')
+                return redirect(url_for('home'))  # Redireciona para a página inicial se não for admin
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
 @app.route('/usuarios', methods=['POST'])
 def create_user():
     data = request.json
@@ -42,8 +70,8 @@ def create_user():
     db = get_db()
     try:
         db.execute(
-            'INSERT INTO usuarios (login, senha, nome, data_criacao, status) VALUES (?, ?, ?, ?, ?)',
-            (login, senha, nome, datetime.now(), 'ativo')
+            'INSERT INTO usuarios (login, senha, nome, data_criacao, status, role) VALUES (?, ?, ?, ?, ?, ?)',
+            (login, senha, nome, datetime.now(), 'ativo', 'user')  # Função padrão é 'user'
         )
         db.commit()
         return jsonify({'message': 'Usuário criado com sucesso!'}), 201
@@ -52,13 +80,19 @@ def create_user():
     finally:
         db.close()
 
+
 @app.route('/usuarios', methods=['GET'])
+@login_required
+@role_required('admin')  # Verifica se o usuário tem a role 'admin'
 def get_users():
     db = get_db()
     users = db.execute('SELECT * FROM usuarios').fetchall()
     return render_template('usuarios.html', users=users)
 
+
 @app.route('/usuarios/<int:id>', methods=['PUT'])
+@login_required
+@role_required('admin')
 def update_user(id):
     data = request.json
     nome = data.get('nome')
@@ -72,7 +106,10 @@ def update_user(id):
     db.commit()
     return jsonify({'message': 'Usuário atualizado com sucesso!'}), 200
 
+
 @app.route('/usuarios/<int:id>/bloquear', methods=['POST'])
+@login_required
+@role_required('admin')
 def block_user(id):
     db = get_db()
     db.execute('UPDATE usuarios SET status = ? WHERE id = ?', ('bloqueado', id))
@@ -82,7 +119,10 @@ def block_user(id):
 
     return render_template('bloquear_usuario.html', user=user)
 
+
 @app.route('/usuarios/<int:id>/ativar', methods=['POST'])
+@login_required
+@role_required('admin')
 def activate_user(id):
     db = get_db()
     db.execute('UPDATE usuarios SET status = ? WHERE id = ?', ('ativo', id))
@@ -91,6 +131,28 @@ def activate_user(id):
     user = db.execute('SELECT * FROM usuarios WHERE id = ?', (id,)).fetchone()
 
     return render_template('ativar_usuario.html', user=user)
+
+
+@app.route('/usuarios/<int:id>/editar', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def edit_user(id):
+    db = get_db()
+    user = db.execute('SELECT * FROM usuarios WHERE id = ?', (id,)).fetchone()
+
+    if request.method == 'POST':
+        nome = request.form['nome']
+        status = request.form['status']
+        db.execute(
+            'UPDATE usuarios SET nome = ?, status = ?, data_ultima_atualizacao = ? WHERE id = ?',
+            (nome, status, datetime.now(), id)
+        )
+        db.commit()
+        flash('Usuário atualizado com sucesso!')
+        return redirect(url_for('get_users'))
+
+    return render_template('editar_usuario.html', user=user)
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -112,6 +174,10 @@ def login():
             )
             db.commit()
 
+            # Armazenar informações do usuário na sessão
+            session['user_id'] = user['id']
+            session['user_role'] = user['role']  # Corrigido para garantir a role seja atribuída corretamente
+
             flash('Login bem-sucedido!')
             return redirect(url_for('home'))
         else:
@@ -120,11 +186,17 @@ def login():
     return render_template('login.html')
 
 
+@app.route('/logout')
+@login_required
+def logout():
+    session.clear()
+    flash('Logout realizado com sucesso.')
+    return redirect(url_for('login'))
+
 
 @app.route('/')
 def home():
     return render_template('home.html')
-
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -133,25 +205,23 @@ def register():
         login = request.form['login']
         senha = request.form['senha']
         nome = request.form['nome']
+        role = request.form.get('role', 'user')  # Pega a role do formulário, se não houver, define como 'user'
 
-        # Verificar se o login é um e-mail válido
         if '@' not in login:
             flash('O login deve ser um e-mail válido')
             return redirect(url_for('register'))
 
-        # Encriptar a senha usando hash seguro (
         senha_encriptada = generate_password_hash(senha)
 
         db = get_db()
         try:
-            # Inserir o usuário no banco de dados
             db.execute(
-                'INSERT INTO usuarios (login, senha, nome, data_criacao, status) VALUES (?, ?, ?, ?, ?)',
-                (login, senha_encriptada, nome, datetime.now(), 'ativo')
+                'INSERT INTO usuarios (login, senha, nome, data_criacao, status, role) VALUES (?, ?, ?, ?, ?, ?)',
+                (login, senha_encriptada, nome, datetime.now(), 'ativo', role)  # Aqui a role é definida a partir do formulário
             )
             db.commit()
             flash('Usuário registrado com sucesso!')
-            return redirect(url_for('login'))  # Redirecionar para a tela de login
+            return redirect(url_for('login'))
         except sqlite3.IntegrityError:
             flash('Este e-mail já está registrado!')
             return redirect(url_for('register'))
@@ -159,38 +229,23 @@ def register():
             db.close()
     return render_template('register.html')
 
-@app.route('/usuarios/<int:id>/editar', methods=['GET'])
-def edit_user_form(id):
+
+
+@app.route('/usuarios/<int:id>/promover', methods=['POST'])
+@login_required
+@role_required('admin')
+def promote_user(id):
     db = get_db()
-    user = db.execute('SELECT * FROM usuarios WHERE id = ?', (id,)).fetchone()
-
-    if not user:
-        flash('Usuário não encontrado!')
-        return redirect(url_for('get_users'))
-
-    return render_template('editar_usuario.html', user=user)
-
-@app.route('/usuarios/<int:id>/editar', methods=['POST'])
-def edit_user(id):
-    nome = request.form.get('nome')
-    status = request.form.get('status')  # Usando get para evitar KeyError
-
-    if not nome or not status:
-        flash('Nome e status são obrigatórios!')
-        return redirect(url_for('edit_user_form', id=id))
-
-    db = get_db()
-    db.execute(
-        'UPDATE usuarios SET nome = ?, status = ?, data_ultima_atualizacao = ? WHERE id = ?',
-        (nome, status, datetime.now(), id)
-    )
+    # Alterar o status do usuário para 'admin', ou outra lógica de promoção
+    db.execute('UPDATE usuarios SET role = ? WHERE id = ?', ('admin', id))
     db.commit()
 
-    flash('Usuário atualizado com sucesso!')
+    flash('Usuário promovido com sucesso!')
     return redirect(url_for('get_users'))
 
 
-
-
 if __name__ == '__main__':
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.run(debug=True)

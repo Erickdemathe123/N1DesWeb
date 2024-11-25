@@ -4,12 +4,55 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bloquear Usuário</title>
-    <link rel="stylesheet" href="{{url_for('static', filename='css/bootstrap.min.css')}}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    <style>
+        body {
+            background-color: #2C2F33;
+            color: #FFFFFF;
+        }
+        h1 {
+            color: #FFFFFF;
+        }
+        .form-group label {
+            color: #FFFFFF;
+        }
+        .btn-danger {
+            background-color: #D9534F;
+            border-color: #D9534F;
+        }
+        .btn-danger:hover {
+            background-color: #C9302C;
+            border-color: #C9302C;
+        }
+        .btn-secondary {
+            background-color: #6C757D;
+            border-color: #6C757D;
+        }
+        .btn-secondary:hover {
+            background-color: #5A6268;
+            border-color: #5A6268;
+        }
+    </style>
 </head>
 <body>
     <div class="container mt-5">
         <h1 class="mb-4">Bloquear Usuário</h1>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="alert alert-danger mt-3" role="alert">
+                    <ul class="list-unstyled">
+                        {% for message in messages %}
+                            <li>{{ message }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+        {% endwith %}
+
         <p>Você tem certeza que deseja bloquear o usuário <strong>{{ user.nome }}</strong>?</p>
+
+        <!-- Formulário de Bloqueio -->
         <form action="{{ url_for('block_user', id=user.id) }}" method="POST">
             <button type="submit" class="btn btn-danger">Bloquear Usuário</button>
             <a href="{{ url_for('get_users') }}" class="btn btn-secondary">Cancelar</a>

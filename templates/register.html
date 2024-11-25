@@ -4,7 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registrar Usuário</title>
-    <link rel="stylesheet" href="{{url_for('static', filename='css/bootstrap.min.css')}}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    <style>
+        body {
+            background-color: #2C2F33;
+            color: #FFFFFF;
+        }
+        h1 {
+            color: #FFFFFF;
+        }
+        .form-control {
+            background-color: #23272A;
+            color: #FFFFFF;
+            border: 1px solid #7289DA;
+        }
+        .form-control:focus {
+            border-color: #5865F2;
+            box-shadow: 0 0 5px rgba(88, 101, 242, 0.8);
+        }
+        .btn-primary {
+            background-color: #5865F2;
+            border-color: #5865F2;
+        }
+        .btn-primary:hover {
+            background-color: #4752C4;
+            border-color: #4752C4;
+        }
+        .alert-warning {
+            background-color: #FFCC4D;
+            color: #2C2F33;
+        }
+    </style>
 </head>
 <body>
     <div class="container mt-5">
@@ -12,17 +42,25 @@
         <form action="{{ url_for('register') }}" method="POST">
             <div class="form-group">
                 <label for="login">Login (e-mail):</label>
-                <input type="email" class="form-control" id="login" name="login" required>
+                <input type="email" class="form-control" id="login" name="login" placeholder="Digite o e-mail" required>
             </div>
 
             <div class="form-group">
                 <label for="senha">Senha:</label>
-                <input type="password" class="form-control" id="senha" name="senha" required>
+                <input type="password" class="form-control" id="senha" name="senha" placeholder="Digite a senha" required>
             </div>
 
             <div class="form-group">
                 <label for="nome">Nome Completo:</label>
-                <input type="text" class="form-control" id="nome" name="nome" required>
+                <input type="text" class="form-control" id="nome" name="nome" placeholder="Digite o nome completo" required>
+            </div>
+
+            <div class="form-group">
+                <label for="role">Função:</label>
+                <select class="form-control" id="role" name="role" required>
+                    <option value="user">Usuário</option>
+                    <option value="admin">Administrador</option>
+                </select>
             </div>
 
             <button type="submit" class="btn btn-primary">Registrar</button>
